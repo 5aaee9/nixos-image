@@ -1,0 +1,33 @@
+name: VM Build
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  vm:
+    name: QEMU Build
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Build os file
+        run: |
+          packer build -var 'headless=true' \
+            build.json
+          mv output-nixos/packer-nixos nixos.qcow2
+
+      - name: Setup YukiDrive Cli
+        run: |
+          export YUKI_VERSION=1.0.1
+          wget https://drive.yukino.co/api/files/onedrive/YukiDrive/CLI/$YUKI_VERSION/linux-x64.zip
+          unzip linux-x64.zip
+          rm -f linux-x64.zip
+          chmod +x ./linux-x64/YukiDrive.CLI
+          ./linux-x64/YukiDrive.CLI --init https://drive.indexyz.me ${{ secrets.FILE_UPLOAD_TOKEN }}
+
+      - name: Release files
+        run: |
+          ./linux-x64/YukiDrive.CLI --upload onedrive nixos.qcow2 QEMU/Templates

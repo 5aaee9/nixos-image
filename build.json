@@ -29,7 +29,7 @@
         "type": "qemu"
     }],
     "variables": {
-        "accelerator": "hvf",
+        "accelerator": "kvm",
         "disk_size": "8192M",
         "display": "cocoa",
         "headless": "false"
