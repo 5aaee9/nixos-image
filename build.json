@@ -29,9 +29,15 @@
         "type": "qemu"
     }],
     "variables": {
-        "accelerator": "hax",
+        "accelerator": "hvf",
         "disk_size": "8192M",
-        "display": "gtk",
+        "display": "cocoa",
         "headless": "false"
-    }
+    },
+    "provisioners": [{
+        "type": "shell",
+        "inline": [
+            "nixos-install --no-root-passwd"
+        ]
+    }]
 }

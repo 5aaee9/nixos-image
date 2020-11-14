@@ -36,12 +36,16 @@ mount $DISK"1" /mnt/boot
 ROOT_UUID=`blkid --output value /dev/vda2 | head -n 1 | tr -d  '[:space:]'`
 BOOT_UUID=`blkid --output value /dev/vda1 | head -n 1 | tr -d  '[:space:]'`
 
-cat > /dev/stdout <<EOF
+echo "git clone https://github.com/Indexyz/dotfiles.git /mnt/etc/dotfiles" | nix-shell -p git --run bash
+ln -sr /mnt/etc/dotfiles/nixos/ /mnt/etc/nixos
+
+cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 { config, lib, pkgs, modulesPath, ... }:
 
 {
     imports = [
         (modulesPath + "/profiles/qemu-guest.nix")
+        ./softwares/ssh.nix
     ];
 
     boot.initrd.availableKernelModules = [
@@ -51,16 +55,26 @@ cat > /dev/stdout <<EOF
     boot.kernelModules = [];
     boot.extraModulePackages = [];
 
-    fileSystem = {
+    boot.loader.grub = {
+        "enable" = true;
+        "version" = 2;
+        "device" = "/dev/vda";
+    };
+
+    fileSystems = {
         "/" = {
             device = "/dev/disk/by-uuid/$ROOT_UUID";
             fsType = "ext4";
-        }
+        };
         "/boot" = {
             device = "/dev/disk/by-uuid/$BOOT_UUID";
             fsType = "ext4";
-        }
-    }
+        };
+    };
 }
+EOF
 
+passwd root <<EOF
+packer
+packer
 EOF
