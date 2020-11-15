@@ -45,7 +45,7 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 {
     imports = [
         (modulesPath + "/profiles/qemu-guest.nix")
-        ./softwares/ssh.nix
+        ./profile/vm.nix
     ];
 
     boot.initrd.availableKernelModules = [
