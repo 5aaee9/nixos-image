@@ -65,6 +65,7 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
         "/" = {
             device = "/dev/disk/by-uuid/$ROOT_UUID";
             fsType = "ext4";
+            autoResize = true;
         };
         "/boot" = {
             device = "/dev/disk/by-uuid/$BOOT_UUID";
