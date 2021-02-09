@@ -1,0 +1,2 @@
+accelerator = "hvf"
+display = "cocoa"
