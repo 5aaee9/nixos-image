@@ -137,7 +137,7 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
     services.qemuGuest.enable = true;
     boot.growPartition = true;
     boot.initrd.availableKernelModules = [
-        "ata_plix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
+        "ata_piix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
     ];
     boot.initrd.kernelModules = [];
     boot.kernelModules = [];
