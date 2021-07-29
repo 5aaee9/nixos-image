@@ -60,6 +60,14 @@ build {
     sources = ["source.qemu.nixos"]
 
     provisioner "shell" {
-        inline = ["nixos-install --no-root-passwd"]
+        inline = [
+            "nixos-install --no-root-passwd"
+        ]
+    }
+
+    provisioner "shell" {
+        inline = [
+            "btrfs filesystem defragment -r -czstd /mnt/nix/store/"
+        ]
     }
 }
