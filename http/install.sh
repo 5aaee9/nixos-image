@@ -1,5 +1,9 @@
 set -x
 
+# How to resize btrfs
+# parted /dev/vda resizepart 2 100%
+# btrfs filesystem resize max /
+
 DISK=/dev/vda
 
 echo "* Partitioning disk"
@@ -48,15 +52,14 @@ mkfs.fat $DISK"1"
 else
 mkfs.ext4 $DISK"1"
 fi
-mkfs.ext4 $DISK"2"
+mkfs.btrfs -L rootfs $DISK"2"
 
-mount $DISK"2" /mnt
+mount $DISK"2" -o compress=zstd,noatime /mnt
 mkdir /mnt/boot
 mount $DISK"1" /mnt/boot
 
 # Create hardware config
 
-ROOT_UUID=`blkid --output value /dev/vda2 | head -n 1 | tr -d  '[:space:]'`
 BOOT_UUID=`blkid --output value /dev/vda1 | head -n 1 | tr -d  '[:space:]'`
 
 mkdir -p /mnt/etc/nixos/
@@ -74,6 +77,7 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
         initrd.availableKernelModules = [ "uas" ];
     };
     boot.kernelParams = [ "console=tty0" "random.trust_cpu=on" ];
+
     services.openssh = {
         enable = true;
         passwordAuthentication = true;
@@ -81,14 +85,28 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
     };
     users.users.root.password = "root";
     users.users.root.openssh.authorizedKeys.keys = [
-        # Hasee Laptop
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINQVrXL5KxSULCy659YGA6ep9mMw16aZHCd+08DFbp6B indexyz@Indexyz-Hasee"
-        # NixOps
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL/mg1k8mFOGphV/8xYgK866wAp84r7/fnoAJaqqAQMu cardno:FFFE004E4D35"
+        # CI Deploy Keys
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBuNngR3JgkjC7I7g8/v4YQNH8Pu13bZcCl9q7Ho8hYJ"
+        # Home NAS
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHDfjdhKhsp76c/c3q9o8HHwFoZ5SjKi6jVEQp6B4Ty root@nixos"
+        # Glowstone Laptop
+        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQChAHl9xXQPu0uF1kEoLLT/mpIdasbaTItnh3kQSk8X2G1Sf9MBnaDQhZ/VcCbehJNZ/tfai+ieUgm/fUtaefLiJwQXm0sx85YB2VroYBr2iSpxc8ia68PQ6+Ii784fAjLWADX4THOHexCYcIzDgVq1pTh/IR/8KVFfKiuhPqEYYUFbZ/oH2VuNKGtIso/leBgoUM/7Tgg+nKzMuv96PMlxzpTsQT9ogX3kTx8xAvKvJ/kyzemmZQoxw5dtcK7ojAOB8kPG0fybCz4EGJmFjyMzB4BtADeShCnUXcHoUcj3NXyp6DhAYfHg/L4s6yfKnZg4TPOdOuDnv5WNHGWzNQlEoCOu2cP9tjQmCtvFasLjQIBwuM1vjtYQY3FsMiMMHskIwGosSwF102ovylpASzIfsTldzWXoqOwUcMDC341SznY4WbejIX4WYKw/qt+CPXNZmQfpCVRuqHFihc2qPMiLqt/q4CrzplUupthWdXkzrP595Qzw/MYrQkCITTZ1Gts= indexyz@Glowstone"
     ];
     networking.useDHCP = false;
     networking.interfaces.eth0.useDHCP = true;
     networking.usePredictableInterfaceNames = false;
+
+    nix = {
+        gc = {
+            automatic = true;
+            options = "--delete-older-than 7d";
+        };
+        # Enable nix flake support
+        package = pkgs.nixUnstable;
+        extraOptions = ''
+          experimental-features = nix-command flakes
+        '';
+    };
 }
 EOF
 
@@ -104,7 +122,7 @@ cat > /mnt/etc/nixos/bootloader.nix <<EOF
     };
 
     fileSystems."/boot" = {
-        device = "/dev/disk/by-uuid/$BOOT_UUID";
+        device = "/dev/disk/by-label/rootfs";
         fsType = "vfat";
     };
 }
@@ -135,7 +153,6 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
     ];
 
     services.qemuGuest.enable = true;
-    boot.growPartition = true;
     boot.initrd.availableKernelModules = [
         "ata_piix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
     ];
@@ -145,9 +162,9 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 
     fileSystems = {
         "/" = {
-            device = "/dev/disk/by-uuid/$ROOT_UUID";
-            fsType = "ext4";
-            autoResize = true;
+            device = "/dev/disk/by-label/rootfs";
+            options = [ "compress=zstd" "noatime" ];
+            fsType = "btrfs";
         };
     };
 }

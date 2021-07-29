@@ -5,7 +5,7 @@ variable "accelerator" {
 
 variable "disk_size" {
     type    = string
-    default = "2048M"
+    default = "4096M"
 }
 
 variable "uefi" {
@@ -15,7 +15,7 @@ variable "uefi" {
 
 variable "qemu_args" {
   type    = list(string)
-  default = []
+  default = ["-boot", "d"]
 }
 
 variable "display" {
@@ -28,17 +28,12 @@ variable "headless" {
     default = "false"
 }
 
-variable "timeout" {
-    type = string
-    default = "60"
-}
-
 locals { timestamp = regex_replace(timestamp(), "[- TZ:]", "") }
 
 source "qemu" "nixos" {
     accelerator              = "${var.accelerator}"
     boot_command             = [
-      "<enter><wait{{user `timeout`}}>", "sudo su<enter>cd ~<enter>",
+      "<enter><wait60>", "sudo su<enter>cd ~<enter>",
       "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/install.sh -o install.sh<enter><wait2s>",
       "UEFI_BUILD=\"${var.uefi}\" bash install.sh<enter>"
     ]
@@ -50,7 +45,7 @@ source "qemu" "nixos" {
     headless                 = "${var.headless}"
     http_directory           = "http"
     iso_checksum             = "none"
-    iso_urls                 = ["https://channels.nixos.org/nixos-20.09/latest-nixos-minimal-x86_64-linux.iso"]
+    iso_urls                 = ["https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso"]
     memory                   = 2048
     qemuargs                 = [var.qemu_args]
     shutdown_command         = "shutdown -P now"
