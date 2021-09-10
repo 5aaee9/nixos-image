@@ -45,7 +45,7 @@ source "qemu" "nixos" {
     headless                 = "${var.headless}"
     http_directory           = "http"
     iso_checksum             = "none"
-    iso_urls                 = ["https://channels.nixos.org/nixos-unstable/latest-nixos-minimal-x86_64-linux.iso"]
+    iso_urls                 = ["./nixos.iso"]
     memory                   = 2048
     qemuargs                 = [var.qemu_args]
     shutdown_command         = "shutdown -P now"

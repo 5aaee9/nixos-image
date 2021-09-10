@@ -1,2 +1,2 @@
 uefi = "yes"
-qemu_args = ["-pflash", "OVMF-pure-efi.fd"]
+qemu_args = ["-pflash", "OVMF.fd"]
