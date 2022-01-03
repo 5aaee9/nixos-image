@@ -1,5 +1,5 @@
 # Build custom iso image
-nix-build '<nixpkgs/nixos>' -A config.system.build.isoImage -I nixos-config=iso.nix
+nix build '.#vmImage.config.system.build.isoImage'
 cp result/iso/nixos-*-x86_64-linux.iso nixos.iso
 rm -f result
 

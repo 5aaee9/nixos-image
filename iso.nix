@@ -1,10 +1,6 @@
 { config, pkgs, lib, ... }:
 
 {
-  imports = [
-    <nixpkgs/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix>
-  ];
-
   networking.wireless.enable = false;
   nix = {
     gc = {
