@@ -14,9 +14,9 @@
     '';
   };
 
-  environment.systemPackages = with pkgs; [
-    btrfs-progs
-  ];
+  boot.supportedFilesystems = ["zfs"];
+  networking.hostId = "9a18f601";
+  boot.initrd.supportedFilesystems = [ "zfs" ];
 
   services.openssh = {
     enable = true;
