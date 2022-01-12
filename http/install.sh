@@ -52,15 +52,23 @@ mkfs.fat $DISK"1"
 else
 mkfs.ext4 $DISK"1"
 fi
-mkfs.btrfs -L rootfs $DISK"2"
 
-mount $DISK"2" -o compress=zstd,noatime /mnt
-mkdir /mnt/boot
+zpool create -o autotrim=on -o autoexpand=on -O compression=zstd -O mountpoint=none tank $DISK"2"
+zfs create -o mountpoint=legacy tank/nix
+
+# Journald requires xattr=sa and acltype=posixacl
+zfs create -o xattr=sa -o acltype=posixacl -o mountpoint=legacy tank/root
+
+mount.zfs tank/root /mnt
+mkdir -p /mnt/boot
 mount $DISK"1" /mnt/boot
+mkdir -p /mnt/nix
+mount.zfs tank/nix /mnt/nix
 
 # Create hardware config
 
 BOOT_UUID=`blkid --output value /dev/vda1 | head -n 1 | tr -d  '[:space:]'`
+HOST_NETWORK_ID=`tr -dc 0-9a-f < /dev/urandom | head -c 8`
 
 mkdir -p /mnt/etc/nixos/
 
@@ -122,7 +130,7 @@ cat > /mnt/etc/nixos/bootloader.nix <<EOF
     };
 
     fileSystems."/boot" = {
-        device = "/dev/disk/by-label/rootfs";
+        device = "/dev/disk/by-uuid/$BOOT_UUID";
         fsType = "vfat";
     };
 }
@@ -136,6 +144,7 @@ cat > /mnt/etc/nixos/bootloader.nix <<EOF
         "version" = 2;
         "device" = "/dev/vda";
     };
+
     fileSystems."/boot" = {
         device = "/dev/disk/by-uuid/$BOOT_UUID";
         fsType = "ext4";
@@ -152,6 +161,14 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
         (modulesPath + "/profiles/qemu-guest.nix")
     ];
 
+    boot.supportedFilesystems = ["zfs"];
+    networking.hostId = "$HOST_NETWORK_ID";
+    boot.initrd.supportedFilesystems = [ "zfs" ];
+
+    services.zfs.trim.enable = true;
+    services.zfs.autoScrub.enable = true;
+    services.zfs.autoScrub.pools = [ "tank" ];
+
     services.qemuGuest.enable = true;
     boot.initrd.availableKernelModules = [
         "ata_piix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
@@ -162,9 +179,12 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 
     fileSystems = {
         "/" = {
-            device = "/dev/disk/by-label/rootfs";
-            options = [ "compress=zstd" "noatime" ];
-            fsType = "btrfs";
+            device = "tank/root";
+            fsType = "zfs";
+        };
+        "/nix" = {
+            device = "tank/nix";
+            fsType = "zfs";
         };
     };
 }

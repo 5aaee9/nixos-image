@@ -64,10 +64,4 @@ build {
             "nixos-install --no-root-passwd"
         ]
     }
-
-    provisioner "shell" {
-        inline = [
-            "btrfs filesystem defragment -r -czstd /mnt/nix/store/"
-        ]
-    }
 }
