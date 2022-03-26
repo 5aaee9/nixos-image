@@ -48,28 +48,18 @@ w
 EOF
 fi
 if [ "$UEFI_BUILD" == "yes" ]; then
-mkfs.fat $DISK"1"
+mkfs.fat $DISK"1" -n ESP
 else
-mkfs.ext4 $DISK"1"
+mkfs.ext4 $DISK"1" -L ESP
 fi
 
-zpool create -o autotrim=on -o autoexpand=on -O compression=zstd -O mountpoint=none tank $DISK"2"
-zfs create -o mountpoint=legacy tank/nix
+mkfs.ext4 $DISK"2" -L nixos
 
-# Journald requires xattr=sa and acltype=posixacl
-zfs create -o xattr=sa -o acltype=posixacl -o mountpoint=legacy tank/root
-
-mount.zfs tank/root /mnt
+mount $DISK"2" /mnt
 mkdir -p /mnt/boot
 mount $DISK"1" /mnt/boot
-mkdir -p /mnt/nix
-mount.zfs tank/nix /mnt/nix
 
 # Create hardware config
-
-BOOT_UUID=`blkid --output value /dev/vda1 | head -n 1 | tr -d  '[:space:]'`
-HOST_NETWORK_ID=`tr -dc 0-9a-f < /dev/urandom | head -c 8`
-
 mkdir -p /mnt/etc/nixos/
 
 cat > /mnt/etc/nixos/configuration.nix <<EOF
@@ -83,11 +73,12 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
     boot = {
         loader.timeout = 0;
         initrd.availableKernelModules = [ "uas" ];
+        growPartition = true;
     };
-    boot.kernelParams = [ "console=tty0" "random.trust_cpu=on" ];
+    boot.kernelParams = [ "console=tty0" "console=ttyS0" "console=tty1" ];
 
-    services.openssh = {
-        enable = true;
+  services.openssh = {
+    enable = true;
         passwordAuthentication = true;
         permitRootLogin = "yes";
     };
@@ -105,10 +96,6 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
     networking.usePredictableInterfaceNames = false;
 
     nix = {
-        gc = {
-            automatic = true;
-            options = "--delete-older-than 7d";
-        };
         # Enable nix flake support
         package = pkgs.nixUnstable;
         extraOptions = ''
@@ -123,32 +110,39 @@ cat > /mnt/etc/nixos/bootloader.nix <<EOF
 { ... }:
 {
 
-    boot.loader.grub = {
-        device = "nodev";
-        efiSupport = true;
-        efiInstallAsRemovable = true;
-    };
+  boot.loader.grub = {
+    version = 2;
+    device = "nodev";
+    efiSupport = true;
+    efiInstallAsRemovable = true;
+    splashImage = null;
+    extraConfig = ''
+      serial --unit=0 --speed=115200 --word=8 --parity=no --stop=1
+      terminal_input --append serial
+      terminal_output --append serial
+    '';
+  };
 
-    fileSystems."/boot" = {
-        device = "/dev/disk/by-uuid/$BOOT_UUID";
-        fsType = "vfat";
-    };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/ESP";
+    fsType = "vfat";
+  };
 }
 EOF
 else
 cat > /mnt/etc/nixos/bootloader.nix <<EOF
 { ... }:
 {
-    boot.loader.grub = {
-        "enable" = true;
-        "version" = 2;
-        "device" = "/dev/vda";
-    };
+  boot.loader.grub = {
+    "enable" = true;
+    "version" = 2;
+    "device" = "/dev/vda";
+  };
 
-    fileSystems."/boot" = {
-        device = "/dev/disk/by-uuid/$BOOT_UUID";
-        fsType = "ext4";
-    };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/ESP";
+    fsType = "ext4";
+  };
 }
 EOF
 fi
@@ -157,36 +151,24 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
 { config, lib, pkgs, modulesPath, ... }:
 
 {
-    imports = [
-        (modulesPath + "/profiles/qemu-guest.nix")
-    ];
+  imports = [
+    (modulesPath + "/profiles/qemu-guest.nix")
+  ];
 
-    boot.supportedFilesystems = ["zfs"];
-    networking.hostId = "$HOST_NETWORK_ID";
-    boot.initrd.supportedFilesystems = [ "zfs" ];
+  boot.initrd.availableKernelModules = [
+    "ata_piix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
+  ];
+  boot.initrd.kernelModules = [];
+  boot.kernelModules = [];
+  boot.extraModulePackages = [];
 
-    services.zfs.trim.enable = true;
-    services.zfs.autoScrub.enable = true;
-    services.zfs.autoScrub.pools = [ "tank" ];
-
-    services.qemuGuest.enable = true;
-    boot.initrd.availableKernelModules = [
-        "ata_piix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
-    ];
-    boot.initrd.kernelModules = [];
-    boot.kernelModules = [];
-    boot.extraModulePackages = [];
-
-    fileSystems = {
-        "/" = {
-            device = "tank/root";
-            fsType = "zfs";
-        };
-        "/nix" = {
-            device = "tank/nix";
-            fsType = "zfs";
-        };
+  fileSystems = {
+    "/" = {
+      device = "/dev/disk/by-label/nixos";
+      fsType = "ext4";
+      autoResize = true;
     };
+  };
 }
 EOF
 

@@ -6,6 +6,7 @@ rm -f result
 # Build OVMF image
 nix build nixpkgs#OVMF.fd
 cp result-fd/FV/OVMF.fd OVMF.fd
+chmod 777 OVMF.fd
 rm -f result-fd
 
 # Build UEFI Result

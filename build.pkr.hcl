@@ -5,7 +5,7 @@ variable "accelerator" {
 
 variable "disk_size" {
     type    = string
-    default = "4096M"
+    default = "3G"
 }
 
 variable "uefi" {
