@@ -66,42 +66,32 @@ cat > /mnt/etc/nixos/configuration.nix <<EOF
 { config, pkgs, modulesPath, ... }:
 
 {
-    imports = [
-        ./hardware-configuration.nix
-        ./bootloader.nix
-    ];
-    boot = {
-        loader.timeout = 0;
-        initrd.availableKernelModules = [ "uas" ];
-        growPartition = true;
-    };
-    boot.kernelParams = [ "console=tty0" "console=ttyS0" "console=tty1" ];
+  imports = [
+    ./hardware-configuration.nix
+    ./bootloader.nix
+  ];
 
   services.openssh = {
     enable = true;
-        passwordAuthentication = true;
-        permitRootLogin = "yes";
-    };
-    users.users.root.password = "root";
-    users.users.root.openssh.authorizedKeys.keys = [
-        # CI Deploy Keys
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBuNngR3JgkjC7I7g8/v4YQNH8Pu13bZcCl9q7Ho8hYJ"
-        # Home NAS
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDHDfjdhKhsp76c/c3q9o8HHwFoZ5SjKi6jVEQp6B4Ty root@nixos"
-        # Glowstone Laptop
-        "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQChAHl9xXQPu0uF1kEoLLT/mpIdasbaTItnh3kQSk8X2G1Sf9MBnaDQhZ/VcCbehJNZ/tfai+ieUgm/fUtaefLiJwQXm0sx85YB2VroYBr2iSpxc8ia68PQ6+Ii784fAjLWADX4THOHexCYcIzDgVq1pTh/IR/8KVFfKiuhPqEYYUFbZ/oH2VuNKGtIso/leBgoUM/7Tgg+nKzMuv96PMlxzpTsQT9ogX3kTx8xAvKvJ/kyzemmZQoxw5dtcK7ojAOB8kPG0fybCz4EGJmFjyMzB4BtADeShCnUXcHoUcj3NXyp6DhAYfHg/L4s6yfKnZg4TPOdOuDnv5WNHGWzNQlEoCOu2cP9tjQmCtvFasLjQIBwuM1vjtYQY3FsMiMMHskIwGosSwF102ovylpASzIfsTldzWXoqOwUcMDC341SznY4WbejIX4WYKw/qt+CPXNZmQfpCVRuqHFihc2qPMiLqt/q4CrzplUupthWdXkzrP595Qzw/MYrQkCITTZ1Gts= indexyz@Glowstone"
-    ];
-    networking.useDHCP = false;
-    networking.interfaces.eth0.useDHCP = true;
-    networking.usePredictableInterfaceNames = false;
+    passwordAuthentication = true;
+    permitRootLogin = "yes";
+  };
 
-    nix = {
-        # Enable nix flake support
-        package = pkgs.nixUnstable;
-        extraOptions = ''
-          experimental-features = nix-command flakes
-        '';
-    };
+  users.users.root = {
+    password = "root";
+    openssh.authorizedKeys.keys = [
+      # Main keys
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBuNngR3JgkjC7I7g8/v4YQNH8Pu13bZcCl9q7Ho8hYJ"
+    ];
+  };
+
+  nix = {
+    # Enable nix flake support
+    package = pkgs.nixUnstable;
+    extraOptions = ''
+      experimental-features = nix-command flakes
+    '';
+  };
 }
 EOF
 
@@ -155,12 +145,40 @@ cat > /mnt/etc/nixos/hardware-configuration.nix <<EOF
     (modulesPath + "/profiles/qemu-guest.nix")
   ];
 
-  boot.initrd.availableKernelModules = [
-    "ata_piix" "virtio_pci" "floppy" "sr_mod" "virtio_blk"
-  ];
-  boot.initrd.kernelModules = [];
-  boot.kernelModules = [];
-  boot.extraModulePackages = [];
+  networking = {
+    useDHCP = false;
+    useNetworkd = true;
+    usePredictableInterfaceNames = false;
+  };
+
+  services.qemuGuest.enable = true;
+  systemd.network.networks.eth0 = {
+    name = "eth0";
+    DHCP = "yes";
+  };
+
+  boot = {
+    loader.timeout = 0;
+    initrd = {
+      availableKernelModules = [
+        "uas"
+        # Disk Drive
+        "ata_piix"
+        "floppy"
+
+        # CD-ROM
+        "sr_mod"
+
+        # LSI 53C895A
+        "sym53c8xx"
+      ];
+      kernelModules = [];
+    };
+    growPartition = true;
+    kernelModules = [];
+    extraModulePackages = [];
+    kernelParams = [ "console=tty0" "console=ttyS0" "console=tty1" ];
+  };
 
   fileSystems = {
     "/" = {

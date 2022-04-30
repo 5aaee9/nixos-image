@@ -3,3 +3,5 @@ output-*
 *.fd
 /result*
 *.iso
+.direnv/
+.DS_Store
